@@ -78,7 +78,8 @@ function FitbitToTCX (data, start, duration, dist_miles) {
             prev_time = moment(start.format("YYYY-MM-DD ") + hr[i-1].time);
         }
 
-        hr[i].secondDiff = moment(start.format("YYYY-MM-DD ") + hr[i].time).diff(prev_time, 'seconds');
+        hr[i].date = moment(start.format("YYYY-MM-DD ") + hr[i].time);
+        hr[i].secondDiff = hr[i].date.diff(prev_time, 'seconds');
         hr[i].dist = hr[i].secondDiff * meters_second;
 
         dist_sum += hr[i].dist;
@@ -89,12 +90,17 @@ function FitbitToTCX (data, start, duration, dist_miles) {
         hr[i].dist_sum = dist_sum;
 
         hr[i].lap = Math.floor(dist_sum / meters_per_mile) + 1;
+        if (hr[i].lap < 1) hr[i].lap = 1;
+
+        if (hr[i].date.isBefore(start)) {
+          break;
+        }
 
         if (i > 0 && hr[i].lap > hr[i-1].lap) {
             laps.push({
-                dist: lap_dist_sum - hr[i].dist,
-                duration: lap_dur_sum - hr[i].secondDiff,
-                calories: (lap_dist_sum - hr[i].dist) / dist_meters * calories_burned,
+              dist: lap_dist_sum - hr[i].dist,
+              duration: lap_dur_sum - hr[i].secondDiff,
+              calories: (lap_dist_sum - hr[i].dist) / dist_meters * calories_burned,
             });
 
             lap_dist_sum = hr[i].dist;
@@ -111,15 +117,19 @@ function FitbitToTCX (data, start, duration, dist_miles) {
     dist_sum = dist_meters;
 
     for (var i = 0; i < hr.length; i++) {
-        if (i == 0 || hr[i].lap > hr[i-1].lap) {
-            tcx += '<Lap StartTime="' + start.format("YYYY-MM-DD") + 'T' + hr[i].time + '.000-06:00"><TotalTimeSeconds>' + laps[hr[i].lap-1].duration + '</TotalTimeSeconds><DistanceMeters>' + laps[hr[i].lap-1].dist + '</DistanceMeters><Calories>' + laps[hr[i].lap-1].calories + '</Calories><Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>';
-        }
+      if (hr[i].date.isBefore(start)) {
+        break;
+      }
 
-        tcx += '<Trackpoint><Time>' + start.format("YYYY-MM-DD") + 'T' + hr[i].time + '.000-06:00</Time><Position><LatitudeDegrees></LatitudeDegrees><LongitudeDegrees></LongitudeDegrees></Position><AltitudeMeters>' + altitude_meters + '</AltitudeMeters><DistanceMeters>' + hr[i].dist_sum + '</DistanceMeters><HeartRateBpm><Value>' + hr[i].value + '</Value></HeartRateBpm></Trackpoint>';
+      if (i == 0 || hr[i].lap > hr[i-1].lap) {
+          tcx += '<Lap StartTime="' + start.format("YYYY-MM-DD") + 'T' + hr[i].time + '.000-06:00"><TotalTimeSeconds>' + laps[hr[i].lap-1].duration + '</TotalTimeSeconds><DistanceMeters>' + laps[hr[i].lap-1].dist + '</DistanceMeters><Calories>' + laps[hr[i].lap-1].calories + '</Calories><Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>';
+      }
 
-        if (i == hr.length - 1 || hr[i+1].lap > hr[i].lap) {
-            tcx += "</Track></Lap>";
-        }
+      tcx += '<Trackpoint><Time>' + start.format("YYYY-MM-DD") + 'T' + hr[i].time + '.000-06:00</Time><Position><LatitudeDegrees></LatitudeDegrees><LongitudeDegrees></LongitudeDegrees></Position><AltitudeMeters>' + altitude_meters + '</AltitudeMeters><DistanceMeters>' + hr[i].dist_sum + '</DistanceMeters><HeartRateBpm><Value>' + hr[i].value + '</Value></HeartRateBpm></Trackpoint>';
+
+      if (i == hr.length - 1 || hr[i+1].lap > hr[i].lap) {
+          tcx += "</Track></Lap>";
+      }
     }
 
     tcx += '<Creator xsi:type="Device_t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Name>Fitbit Ionic</Name><UnitId>0</UnitId><ProductID>0</ProductID></Creator></Activity></Activities></TrainingCenterDatabase>';
@@ -129,7 +139,7 @@ function FitbitToTCX (data, start, duration, dist_miles) {
 
 app.get("/export", function (req, res) {
     if (!req.query.start || !req.query.duration || !req.query.distance) {
-        res.send("Set start, duration, and distance params in url<br>Example: /export?start=2020-09-01 06:28:00&duration=3141&distance=4.00");
+        res.sendFile("./export.html", { root: __dirname });
         return;
     } else if (!req.cookies || !req.cookies.fitbitToken) {
         res.redirect("/auth");
@@ -137,13 +147,13 @@ app.get("/export", function (req, res) {
     }
 
     var token = req.cookies.fitbitToken;
-    var start = moment(req.query.start);
+    var start = moment(req.query.start, "YYYY-MM-DD HH:mm:ss");
     var duration = parseInt(req.query.duration); // seconds
     var distance = parseFloat(req.query.distance); // miles
 
     var end = moment(start).add(duration, "seconds");
 
-    var url = "https://api.fitbit.com/1/user/-/activities/heart/date/" + start.format("YYYY-MM-DD") + "/1d/1sec/time/" + start.format("HH:mm") + "/" + end.format("HH:mm") + ".json"
+    var url = "https://api.fitbit.com/1/user/-/activities/heart/date/" + start.format("YYYY-MM-DD") + "/1d/1sec/time/" + start.format("HH:mm:ss") + "/" + end.format("HH:mm:ss") + ".json"
 
     request({
         uri: url,
@@ -161,9 +171,8 @@ app.get("/export", function (req, res) {
             });
             res.end(tcx);
 
-        } catch( err ) {
-            console.log(err);
-            //res.send(err.message);
+        } catch(err) {
+          console.error(err);
         }
     });
 });

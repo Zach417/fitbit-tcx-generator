@@ -1,0 +1,57 @@
+<html>
+<head>
+  <style>
+    td {
+      padding: 5px;
+    }
+  </style>
+  <script type="text/javascript">
+    function setup () {
+      var d = new Date();
+      var mm = d.getMonth() + 1;
+      var dd = d.getDate();
+      var yyyy = d.getFullYear();
+
+      if (dd < 10) dd = "0" + dd.toString();
+      if (mm < 10) mm = "0" + mm.toString();
+
+      var dateString = yyyy + '-' + mm + '-' + dd;
+
+      document.getElementById("txt-start").value = dateString + " " + new Date().toLocaleTimeString('en-US', { hour12: false });
+
+      document.getElementById("txt-duration").value = "00:00:00";
+      document.getElementById("txt-distance").value = "0.00";
+    }
+
+    function downloadTcx() {
+      var start = document.getElementById("txt-start").value;
+      var duration = document.getElementById("txt-duration").value;
+      var distance = document.getElementById("txt-distance").value;
+
+      duration = (+duration.split(":")[0]) * 60 * 60 + (+duration.split(":")[1]) * 60 + (+duration.split(":")[2]);
+
+      window.location = "/export?start=" + start + "&duration=" + duration + "&distance=" + distance;
+    }
+  </script>
+</head>
+<body onload="setup()">
+  <h2 style="color: darkblue;">Enter workout details to download .tcx</h2>
+  <table>
+    <tbody>
+      <tr>
+        <td><label>Start Time (YYYY-MM-DD HH:mm:ss)</label></td>
+        <td><input id="txt-start" type="text"></td>
+      </tr>
+      <tr>
+        <td><label>Duration (HH:mm:ss)</label></td>
+        <td><input id="txt-duration" type="text"></td>
+      </tr>
+      <tr>
+        <td><label>Distance (miles)</label></td>
+        <td><input id="txt-distance" type="text"></td>
+      </tr>
+    </tbody>
+  </table>
+  <br>
+  <button onclick="downloadTcx()" style="border-style: solid;padding: 10px 25px;background-color: darkgray;color: white;font-weight: 900;">Download</button>
+</body>
