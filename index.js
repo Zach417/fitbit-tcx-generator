@@ -178,7 +178,7 @@ app.get("/export", function (req, res) {
 });
 
 app.get("/", function (req, res) {
-    res.send('Hello<br><a href="/auth">Log in with Fitbit</a>');
+    res.redirect("/auth");
 });
 
 var key = fs.readFileSync('./key.pem');
